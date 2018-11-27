@@ -4,13 +4,16 @@ package edu.cnm.deepdive.many_to_many.controller;
 import edu.cnm.deepdive.many_to_many.model.dao.ProjectRepository;
 import edu.cnm.deepdive.many_to_many.model.dao.StudentRepository;
 import edu.cnm.deepdive.many_to_many.model.entity.Project;
+import edu.cnm.deepdive.many_to_many.model.entity.Student;
 import java.util.List;
 import java.util.NoSuchElementException;
+import javax.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.hateoas.ExposesResourceFor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,6 +52,30 @@ public class ProjectController {
   public Project get(@PathVariable("projectId") Long projectId){//@PathVariable is what links into the value variable name above.  Spring parses the long for us here.
     return projectRepository.findById(projectId).get();//this could throw an exception if there is no element
   }
+
+  @Transactional//everything has to succeed or it will all be rolled back
+  @DeleteMapping(value = "{projectId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void delete(@PathVariable("projectId") Long projectId){
+    Project project = get(projectId);
+    List<Student> students = project.getStudents();
+    for (Student student :
+        students) {
+      student.getProjects().remove(project);
+    }
+    studentRepository.saveAll(students);
+    projectRepository.delete(project);
+  }
+
+  @PostMapping(value = "{projectId}/students", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Project> postStudent(@PathVariable("projectId") long projectId, @RequestBody Student partialStudent){
+    Project project = get(projectId);
+    Student student = studentRepository.findById(partialStudent.getId()).get();
+    student.getProjects().add(project);
+    studentRepository.save(student);
+    return ResponseEntity.created(project.getHref()).body(project);
+  }
+
 
   @ResponseStatus(value = HttpStatus.NOT_FOUND, reason = "Resource not found")
   @ExceptionHandler(NoSuchElementException.class)

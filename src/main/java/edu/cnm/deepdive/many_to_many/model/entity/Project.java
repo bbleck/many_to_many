@@ -75,7 +75,7 @@ public class Project implements BaseProject {
 
   @Override
   public Date getCreated() {
-    return null;
+    return created;
   }
 
   public String getName() {
