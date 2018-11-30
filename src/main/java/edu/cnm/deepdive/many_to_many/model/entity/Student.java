@@ -28,9 +28,8 @@ import org.springframework.hateoas.EntityLinks;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 
-
 @Entity
-@Component //we need to participate in spring dependency injection services
+@Component
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Student implements BaseStudent {
 
@@ -47,29 +46,24 @@ public class Student implements BaseStudent {
   private Date created;
 
   @NonNull
-  @Column(nullable = false)//nullable = false causes DDL to generate code that says this column cannot be null, where as @NonNull is used by annotation readers
+  @Column(nullable = false)
   private String name;
 
   @ManyToMany(fetch = FetchType.LAZY,
-  cascade = {CascadeType.DETACH, CascadeType.MERGE, CascadeType.PERSIST, CascadeType.REFRESH})//only do fetchtype.eager on one side!
-  @JoinTable(joinColumns = @JoinColumn(name="student_id"),
-    inverseJoinColumns = @JoinColumn(name = "project_id"))
+      cascade = {CascadeType.DETACH, CascadeType.MERGE, CascadeType.PERSIST, CascadeType.REFRESH})
+  @JoinTable(joinColumns = @JoinColumn(name = "student_id"),
+      inverseJoinColumns = @JoinColumn(name = "project_id"))
   @OrderBy("name ASC")
   private List<Project> projects = new LinkedList<>();
 
   @PostConstruct
-  private void initEntityLinks(){
+  private void initEntityLinks() {
     String ignore = entityLinks.toString();
   }
 
   @Autowired
-  private void setEntityLinks(EntityLinks entityLinks){
+  private void setEntityLinks(EntityLinks entityLinks) {
     Student.entityLinks = entityLinks;
-  }
-
-  @JsonSerialize(contentAs = BaseProject.class)
-  public List<Project> getProjects() {
-    return projects;
   }
 
   public long getId() {
@@ -88,7 +82,13 @@ public class Student implements BaseStudent {
     this.name = name;
   }
 
-  public URI getHref(){
+  @JsonSerialize(contentAs = BaseProject.class)
+  public List<Project> getProjects() {
+    return projects;
+  }
+
+  public URI getHref() {
     return entityLinks.linkForSingleResource(Student.class, id).toUri();
   }
+
 }

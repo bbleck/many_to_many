@@ -1,6 +1,5 @@
 package edu.cnm.deepdive.many_to_many.controller;
 
-
 import edu.cnm.deepdive.many_to_many.model.dao.ProjectRepository;
 import edu.cnm.deepdive.many_to_many.model.dao.StudentRepository;
 import edu.cnm.deepdive.many_to_many.model.entity.Project;
@@ -23,52 +22,61 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@RestController//we are not specifying the views somewhere else--a controller that doesn't have additional views that we need to pass through
+@RestController
 @ExposesResourceFor(Project.class)
-@RequestMapping("/projects")//begin with some base url and then "/projects", everything here will be relative to /projects
+@RequestMapping("/projects")
 public class ProjectController {
 
-  private ProjectRepository projectRepository;//the current way to do injection in spring is to let the constructor be autowired
+  private ProjectRepository projectRepository;
   private StudentRepository studentRepository;
 
-  @Autowired//autowired does not need to be explicit in constructors, it is assumed to be there in constructors in spring
-  public ProjectController(ProjectRepository projectRepository, StudentRepository studentRepository){
+  @Autowired
+  public ProjectController(ProjectRepository projectRepository,
+      StudentRepository studentRepository) {
     this.projectRepository = projectRepository;
     this.studentRepository = studentRepository;
   }
 
   @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-  public List<Project> list(){
-    return projectRepository.findAllByOrderByNameAsc();//how does this get returned as a json? spring looks in its pathway and will find jackson, and jackson will turn it into a json
+  public List<Project> list() {
+    return projectRepository.findAllByOrderByNameAsc();
   }
 
-  @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<Project> post(@RequestBody Project project){
-    projectRepository.save(project);//this saves it into the db, because we extended the crudrepository and now we are invoking it
-    return ResponseEntity.created(project.getHref()).body(project);//.created gives us a 201 response.  There needs to be a location header, and a body with the representation of that address. The save method puts this body into the project object.
+  @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Project> post(@RequestBody Project project) {
+    projectRepository.save(project);
+    return ResponseEntity.created(project.getHref()).body(project);
   }
 
-  @GetMapping(value = "{projectId}", produces = MediaType.APPLICATION_JSON_VALUE)//will now automatically look at /projects/something (/projects from annotation above)
-  public Project get(@PathVariable("projectId") Long projectId){//@PathVariable is what links into the value variable name above.  Spring parses the long for us here.
-    return projectRepository.findById(projectId).get();//this could throw an exception if there is no element
+  @GetMapping(value = "{projectId}", produces = MediaType.APPLICATION_JSON_VALUE)
+  public Project get(@PathVariable("projectId") long projectId) {
+    return projectRepository.findById(projectId).get();
   }
 
-  @Transactional//everything has to succeed or it will all be rolled back
+  @Transactional
   @DeleteMapping(value = "{projectId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void delete(@PathVariable("projectId") Long projectId){
+  public void delete(@PathVariable("projectId") long projectId) {
     Project project = get(projectId);
     List<Student> students = project.getStudents();
-    for (Student student :
-        students) {
+    for (Student student : students) {
       student.getProjects().remove(project);
     }
     studentRepository.saveAll(students);
     projectRepository.delete(project);
   }
 
-  @PostMapping(value = "{projectId}/students", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<Project> postStudent(@PathVariable("projectId") long projectId, @RequestBody Student partialStudent){
+  // TODONE Add controller method to return list of Student instances for a specified projectId.
+  @GetMapping("{projectId}/students")
+  public List<Student> studentList (@PathVariable("projectId") long projectId) {
+    return get(projectId).getStudents();
+  }
+
+  @PostMapping(value = "{projectId}/students", consumes = MediaType.APPLICATION_JSON_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Project> postStudent(@PathVariable("projectId") long projectId,
+      @RequestBody Student partialStudent) {
     Project project = get(projectId);
     Student student = studentRepository.findById(partialStudent.getId()).get();
     student.getProjects().add(project);
@@ -76,12 +84,24 @@ public class ProjectController {
     return ResponseEntity.created(project.getHref()).body(project);
   }
 
+  // TODONE Add controller method to remove a Student instance from project with specified projectId.
+  //  Hint: Remove the project from the student's getProjects() list, and save the student.
+  @DeleteMapping(value = "{projectId}/students/{studentId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deleteStudent(@PathVariable("projectId") long projectId,
+      @PathVariable("studentId") long studentId) {
+    Project project = get(projectId);
+    Student student = studentRepository.findById(studentId).get();
+    if (project.getStudents().remove(student)){
+      projectRepository.save(project);
+    }else{
+      throw new NoSuchElementException();
+    }
+  }
 
   @ResponseStatus(value = HttpStatus.NOT_FOUND, reason = "Resource not found")
   @ExceptionHandler(NoSuchElementException.class)
-  public void notFound(){
-    //do nothing on purpose
+  public void notFound() {
   }
-
 
 }
